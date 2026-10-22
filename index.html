@@ -1,0 +1,1210 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>mahdi offline v1.3</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;900&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --primary-color: #3b82f6;
+            --secondary-color: #0f172a;
+            --accent-glow: rgba(59, 130, 246, 0.4);
+            --bg-canvas: #090d16;
+            --text-color: #f8fafc;
+            --glass-bg: rgba(15, 23, 42, 0.75);
+            --glass-border: rgba(255, 255, 255, 0.12);
+        }
+
+        body {
+            font-family: 'Tajawal', sans-serif;
+            background-color: var(--bg-canvas);
+            color: var(--text-color);
+            user-select: none;
+            overflow: hidden;
+            transition: background-color 0.8s ease, color 0.8s ease;
+        }
+
+        /* Dynamic Weather & Particle Background Canvas */
+        #bgCanvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* Glassmorphic Panels */
+        .glass-panel {
+            background: var(--glass-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--glass-border);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+
+        .theme-accent-bg {
+            background-color: var(--primary-color) !important;
+        }
+        .theme-accent-text {
+            color: var(--primary-color) !important;
+        }
+
+        /* Celestial Day/Night Dynamic Toggle Button */
+        .celestial-toggle {
+            position: relative;
+            width: 90px;
+            height: 42px;
+            border-radius: 25px;
+            cursor: pointer;
+            overflow: hidden;
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            border: 2px solid var(--glass-border);
+        }
+
+        .celestial-toggle.day-mode {
+            background: linear-gradient(135deg, #38bdf8 0%, #0284c7 100%);
+            box-shadow: 0 0 15px rgba(56, 189, 248, 0.5);
+        }
+
+        .celestial-toggle.night-mode {
+            background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
+            box-shadow: 0 0 15px rgba(99, 102, 241, 0.4);
+        }
+
+        /* Rain Canvas Layer */
+        #rainCanvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        /* Windows Taskbar */
+        .taskbar {
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(20px);
+            border-top: 1px solid var(--glass-border);
+        }
+
+        /* Logo M Button */
+        .m-logo-btn {
+            background: linear-gradient(135deg, var(--primary-color), #8b5cf6);
+            box-shadow: 0 0 15px var(--accent-glow);
+            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .m-logo-btn:hover {
+            transform: scale(1.1) rotate(6deg);
+            box-shadow: 0 0 25px var(--accent-glow);
+        }
+
+        /* Desktop App Icon */
+        .desktop-icon {
+            transition: all 0.25s ease;
+        }
+        .desktop-icon:hover {
+            transform: translateY(-6px) scale(1.05);
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.2);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: var(--primary-color);
+            border-radius: 10px;
+        }
+
+        /* Cloud Animation for Day Mode */
+        @keyframes floatCloud {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(200%); }
+        }
+        .animate-cloud {
+            animation: floatCloud 8s linear infinite;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between relative select-none">
+
+    <!-- Interactive Background Particles & Celestial Canvas -->
+    <canvas id="bgCanvas"></canvas>
+    <!-- Rain Canvas Effect Layer -->
+    <canvas id="rainCanvas"></canvas>
+
+    <!-- Hidden HTML5 Audio Element for Local Music Player -->
+    <audio id="bgAudioPlayer" loop></audio>
+
+    <!-- Top OS Bar / Header -->
+    <header class="relative z-20 px-6 py-3 flex items-center justify-between glass-panel mx-4 mt-4 rounded-2xl flex-wrap gap-3">
+        
+        <!-- M Logo & Info Creator Trigger -->
+        <div class="flex items-center gap-3">
+            <div class="m-logo-btn w-10 h-10 rounded-xl flex items-center justify-center font-black text-2xl text-white shadow-lg cursor-pointer" onclick="toggleAboutModal()" title="التعريف بالموقع والصانع">
+                M
+            </div>
+            <div>
+                <h1 class="font-black text-lg tracking-wider bg-gradient-to-r from-blue-400 via-purple-300 to-pink-400 bg-clip-text text-transparent">mahdi offline</h1>
+                <p class="text-[10px] opacity-70">التحديث v1.3 • Mahdi Games Engine</p>
+            </div>
+        </div>
+
+        <!-- Controls Bar: Music Upload, Rain Toggle, Day/Night & Colors -->
+        <div class="flex items-center gap-3 flex-wrap">
+
+            <!-- Background Music File Uploader & Controls -->
+            <div class="glass-panel px-3 py-1.5 rounded-xl flex items-center gap-2 text-xs font-bold">
+                <i class="fa-solid fa-music text-pink-400"></i>
+                <label for="musicFileInput" class="cursor-pointer hover:text-blue-400 transition-colors">
+                    <span id="musicLabelText">اختر موسيقى MP3</span>
+                </label>
+                <input type="file" id="musicFileInput" accept="audio/*" onchange="loadUserMusic(event)" class="hidden">
+                <button id="playPauseMusicBtn" onclick="toggleMusicPlay()" class="hidden w-6 h-6 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center text-[10px]">
+                    <i class="fa-solid fa-play"></i>
+                </button>
+            </div>
+
+            <!-- Rain Toggle Button -->
+            <button onclick="toggleRainEffect()" id="rainToggleBtn" class="glass-panel px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-2 hover:bg-white/10 transition-all">
+                <i class="fa-solid fa-cloud-rain text-cyan-400"></i>
+                <span id="rainBtnText">تفعيل المطر</span>
+            </button>
+
+            <!-- Day / Night Dynamic Celestial Toggle -->
+            <div id="celestialToggle" onclick="toggleDayNightMode()" class="celestial-toggle night-mode p-1 flex items-center justify-between relative">
+                <!-- Day Scene (Sun & Cloud) -->
+                <div id="dayScene" class="absolute inset-0 flex items-center justify-between px-2 opacity-0 transition-opacity duration-500 pointer-events-none">
+                    <i class="fa-solid fa-cloud text-white/80 text-xs animate-cloud"></i>
+                    <div class="w-7 h-7 rounded-full bg-amber-300 shadow-md flex items-center justify-center text-amber-950 text-xs font-bold">
+                        <i class="fa-solid fa-sun animate-spin-slow"></i>
+                    </div>
+                </div>
+
+                <!-- Night Scene (Moon & Stars) -->
+                <div id="nightScene" class="absolute inset-0 flex items-center justify-between px-2 opacity-100 transition-opacity duration-500 pointer-events-none">
+                    <div class="w-7 h-7 rounded-full bg-indigo-950 border border-indigo-400/30 flex items-center justify-center text-indigo-200 text-xs font-bold shadow-md">
+                        <i class="fa-solid fa-moon"></i>
+                    </div>
+                    <div class="flex gap-1 text-[9px] text-amber-200/80">
+                        <i class="fa-solid fa-star animate-pulse"></i>
+                        <i class="fa-solid fa-star text-[7px]"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Custom Full-Spectrum Color Customization -->
+            <button onclick="toggleThemeModal()" class="glass-panel px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-2 hover:bg-white/10 transition-all">
+                <i class="fa-solid fa-palette text-purple-400"></i>
+                <span>التخصيص</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Desktop Workspace -->
+    <main class="relative z-10 flex-1 p-8 flex flex-col justify-start items-start">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 max-w-sm">
+            <!-- Desktop Application: Mahdi Games -->
+            <div onclick="openApp('games')" class="desktop-icon glass-panel p-5 rounded-3xl flex flex-col items-center justify-center text-center cursor-pointer border border-white/10 group">
+                <div class="w-16 h-16 rounded-2xl theme-accent-bg flex items-center justify-center text-white text-3xl shadow-xl mb-3 group-hover:scale-110 transition-transform">
+                    <i class="fa-solid fa-gamepad"></i>
+                </div>
+                <h3 class="font-black text-sm tracking-wide">تطبيق الألعاب</h3>
+                <p class="text-[10px] opacity-60 mt-1">Mahdi Games Engine v1.3</p>
+            </div>
+        </div>
+    </main>
+
+    <!-- Start Menu Drawer -->
+    <div id="startMenu" class="hidden absolute bottom-16 right-6 z-50 w-80 glass-panel rounded-3xl p-4 shadow-2xl border border-white/20">
+        <div class="flex items-center gap-3 pb-3 border-b border-white/10 mb-3">
+            <div class="w-12 h-12 m-logo-btn rounded-2xl flex items-center justify-center font-black text-2xl text-white shadow-md cursor-pointer" onclick="toggleAboutModal()">
+                M
+            </div>
+            <div>
+                <h3 class="font-bold text-sm">mahdi offline OS</h3>
+                <p class="text-xs opacity-60">صانع المنصة: مهدي مشتح</p>
+            </div>
+        </div>
+        <div class="space-y-2 text-xs font-medium">
+            <button onclick="openApp('games')" class="w-full text-right p-3 rounded-xl hover:bg-white/10 flex items-center gap-3 transition-all">
+                <i class="fa-solid fa-gamepad text-blue-400 text-lg"></i>
+                <div>
+                    <div class="font-bold">تطبيق الألعاب (Mahdi Games)</div>
+                    <div class="text-[10px] opacity-60">ألعاب أوفلاين واختبار ردة الفعل</div>
+                </div>
+            </button>
+        </div>
+    </div>
+
+    <!-- Windows Taskbar -->
+    <footer class="relative z-30 taskbar h-14 px-6 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+            <button onclick="toggleStartMenu()" class="m-logo-btn w-9 h-9 rounded-xl flex items-center justify-center font-black text-xl text-white shadow-lg">
+                M
+            </button>
+            <span class="text-xs font-bold opacity-80 tracking-wider">mahdi offline v1.3</span>
+        </div>
+
+        <div class="flex items-center gap-2 text-xs font-bold opacity-80 glass-panel px-3 py-1.5 rounded-xl">
+            <i class="fa-regular fa-clock text-blue-400"></i>
+            <span id="osClock">00:00:00</span>
+        </div>
+    </footer>
+
+    <!-- ABOUT CREATOR MODAL (TRIGGERED BY TOP M LOGO) -->
+    <div id="aboutModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md">
+        <div class="glass-panel w-full max-w-md rounded-3xl p-6 border border-white/20 shadow-2xl text-center">
+            <div class="w-20 h-20 m-logo-btn rounded-3xl flex items-center justify-center font-black text-4xl text-white shadow-2xl mx-auto mb-4">
+                M
+            </div>
+            <h2 class="font-black text-xl bg-gradient-to-r from-blue-400 via-purple-300 to-pink-400 bg-clip-text text-transparent">mahdi offline v1.3</h2>
+            <p class="text-xs opacity-70 mt-1 mb-4">المنصة المحلّية الأوفلاين الشاملة للألعاب والتحديات</p>
+
+            <div class="p-4 rounded-2xl bg-white/5 border border-white/10 text-xs space-y-2 mb-6">
+                <p class="font-bold text-amber-300">💡 فكرة وتصميم وصناعة:</p>
+                <p class="font-black text-lg text-white">مهدي مشتح (Mahdi Mchattah)</p>
+                <p class="text-[11px] opacity-70">تم التطوير والبرمجة بالكامل لتعمل 100% بدون إنترنت مع تخصيصات حيوية مطلقة.</p>
+            </div>
+
+            <button onclick="toggleAboutModal()" class="w-full py-2.5 rounded-xl theme-accent-bg text-white font-bold text-xs shadow-lg hover:opacity-90 transition-all">
+                إغلاق
+            </button>
+        </div>
+    </div>
+
+    <!-- COLOR PICKER MODAL -->
+    <div id="themeModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md">
+        <div class="glass-panel w-full max-w-md rounded-3xl p-6 border border-white/20 shadow-2xl">
+            <div class="flex items-center justify-between pb-4 border-b border-white/10 mb-4">
+                <h3 class="font-black text-base flex items-center gap-2">
+                    <i class="fa-solid fa-droplet text-pink-400"></i>
+                    تخصيص ألوان النظام
+                </h3>
+                <button onclick="toggleThemeModal()" class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-xs">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <div class="space-y-4 text-xs font-bold">
+                <div>
+                    <label class="block mb-2">اللون الرئيسي (Primary Color):</label>
+                    <input type="color" id="primaryColorInput" value="#3b82f6" onchange="updateCustomColors()" class="w-full h-10 rounded-xl cursor-pointer bg-transparent border-none">
+                </div>
+                <div>
+                    <label class="block mb-2">لون الخلفية (Background Color):</label>
+                    <input type="color" id="bgColorInput" value="#090d16" onchange="updateCustomColors()" class="w-full h-10 rounded-xl cursor-pointer bg-transparent border-none">
+                </div>
+                <div>
+                    <label class="block mb-2">لون النص (Text Color):</label>
+                    <input type="color" id="textColorInput" value="#f8fafc" onchange="updateCustomColors()" class="w-full h-10 rounded-xl cursor-pointer bg-transparent border-none">
+                </div>
+            </div>
+            
+            <button onclick="resetColors()" class="w-full mt-6 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 font-bold text-xs transition-all">
+                استعادة الألوان الافتراضية
+            </button>
+        </div>
+    </div>
+
+    <!-- MAHDI GAMES WINDOW -->
+    <div id="appGamesWindow" class="hidden fixed inset-4 sm:inset-8 z-40 glass-panel rounded-3xl flex flex-col overflow-hidden border border-white/20 shadow-2xl">
+        <div class="bg-slate-900/90 px-5 py-3 flex items-center justify-between border-b border-white/10">
+            <div class="flex items-center gap-3">
+                <div class="w-7 h-7 rounded-lg theme-accent-bg flex items-center justify-center text-white text-xs font-bold">
+                    <i class="fa-solid fa-gamepad"></i>
+                </div>
+                <h3 class="font-black text-sm tracking-wide">تطبيق الألعاب (Mahdi Games v1.3)</h3>
+            </div>
+            <div class="flex items-center gap-2">
+                <button onclick="toggleHighScoresModal()" class="px-3 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 font-bold text-xs flex items-center gap-2 border border-amber-500/30 transition-all">
+                    <i class="fa-solid fa-trophy"></i>
+                    <span>الأرقام القياسية</span>
+                </button>
+                <button onclick="closeApp('games')" class="w-8 h-8 rounded-full bg-rose-500/80 hover:bg-rose-600 text-white flex items-center justify-center text-xs transition-all">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+        </div>
+
+        <div class="flex-1 p-6 overflow-y-auto">
+            <div class="flex items-center justify-between mb-6 flex-wrap gap-3">
+                <h2 class="font-black text-base flex items-center gap-2">
+                    <i class="fa-solid fa-list-check theme-accent-text"></i>
+                    اختر لعبة للبدء
+                </h2>
+                <div class="flex items-center gap-2 text-xs font-bold bg-slate-900/50 p-1 rounded-xl border border-white/10">
+                    <button onclick="filterGames('all')" class="cat-btn px-3 py-1.5 rounded-lg theme-accent-bg text-white">الكل</button>
+                    <button onclick="filterGames('reaction')" class="cat-btn px-3 py-1.5 rounded-lg hover:bg-white/10 text-amber-300">⚡ اختبار ردة الفعل</button>
+                    <button onclick="filterGames('ai')" class="cat-btn px-3 py-1.5 rounded-lg hover:bg-white/10">ضد البوت</button>
+                    <button onclick="filterGames('2p')" class="cat-btn px-3 py-1.5 rounded-lg hover:bg-white/10">لاعبين (2P)</button>
+                    <button onclick="filterGames('arcade')" class="cat-btn px-3 py-1.5 rounded-lg hover:bg-white/10">أركيد وسرعة</button>
+                </div>
+            </div>
+
+            <div id="gamesAppGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                <!-- Games injected dynamically -->
+            </div>
+        </div>
+    </div>
+
+    <!-- ACTIVE GAME RUNNER MODAL -->
+    <div id="activeGameModal" class="hidden fixed inset-2 sm:inset-6 z-50 glass-panel rounded-3xl flex flex-col overflow-hidden border border-white/20 shadow-2xl">
+        <div class="bg-slate-950 px-5 py-3 flex items-center justify-between border-b border-white/10">
+            <div class="flex items-center gap-3">
+                <i id="currentGameIcon" class="text-xl theme-accent-text"></i>
+                <h3 id="currentGameTitle" class="font-black text-sm"></h3>
+            </div>
+            <div class="flex items-center gap-3">
+                <span id="gameScoreTag" class="text-xs font-bold text-emerald-400 bg-emerald-950/60 px-3 py-1 rounded-full border border-emerald-500/30">النتيجة: 0</span>
+                <button onclick="closeActiveGame()" class="w-8 h-8 rounded-full bg-rose-500 hover:bg-rose-600 text-white flex items-center justify-center text-xs transition-all">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+        </div>
+        <div id="gamePlayground" class="flex-1 bg-slate-950 flex flex-col items-center justify-center p-4 relative overflow-hidden">
+            <!-- Active Game Canvas / UI -->
+        </div>
+    </div>
+
+    <!-- HIGH SCORES MODAL -->
+    <div id="highScoresModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md">
+        <div class="glass-panel w-full max-w-md rounded-3xl p-6 border border-white/20 shadow-2xl">
+            <div class="flex items-center justify-between pb-4 border-b border-white/10 mb-4">
+                <h3 class="font-black text-base flex items-center gap-2 text-amber-400">
+                    <i class="fa-solid fa-trophy"></i>
+                    لوحة الأرقام القياسية (High Scores)
+                </h3>
+                <button onclick="toggleHighScoresModal()" class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-xs">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            
+            <div id="highScoresList" class="space-y-2 max-h-60 overflow-y-auto pr-1 text-xs">
+                <!-- High scores list injected via JS -->
+            </div>
+
+            <button onclick="clearHighScores()" class="w-full mt-6 py-2 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 font-bold text-xs border border-rose-500/30 transition-all">
+                تصفير جميع الأرقام القياسية
+            </button>
+        </div>
+    </div>
+
+    <script>
+        const GAMES_DATABASE = [
+            { id: 'reaction', name: 'اختبار ردة الفعل', cat: 'reaction', icon: 'fa-bolt', color: 'from-amber-400 to-orange-600' },
+            { id: 'snake', name: 'الثعبان السريع', cat: 'arcade', icon: 'fa-staff-snake', color: 'from-green-500 to-emerald-700' },
+            { id: 'connect4', name: '4 في صف (Connect 4)', cat: 'ai', icon: 'fa-circle-dot', color: 'from-blue-500 to-indigo-700' },
+            { id: 'stack', name: 'بناء البرج (Stack)', cat: 'arcade', icon: 'fa-layer-group', color: 'from-fuchsia-500 to-purple-700' },
+            { id: 'tictactoe', name: 'إكس أو ضد البوت', cat: 'ai', icon: 'fa-xmark', color: 'from-pink-500 to-rose-600' },
+            { id: 'space', name: 'حرب الفضاء', cat: 'arcade', icon: 'fa-rocket', color: 'from-purple-500 to-pink-600' },
+            { id: 'brick', name: 'تحطيم الكتل', cat: 'arcade', icon: 'fa-cubes', color: 'from-red-500 to-rose-600' },
+            { id: 'flappy', name: 'الطائر القافز', cat: 'arcade', icon: 'fa-dove', color: 'from-yellow-400 to-amber-500' },
+            { id: 'pong', name: 'بونج التحدي (2P)', cat: '2p', icon: 'fa-table-tennis-paddle-ball', color: 'from-sky-500 to-blue-600' },
+            { id: 'memory', name: 'طابق الذاكرة', cat: 'ai', icon: 'fa-brain', color: 'from-amber-500 to-yellow-600' },
+            { id: 'math', name: 'تحدي الحساب', cat: 'ai', icon: 'fa-calculator', color: 'from-indigo-500 to-purple-600' },
+            { id: 'car', name: 'تفادي السيارات', cat: 'arcade', icon: 'fa-car', color: 'from-emerald-500 to-teal-700' }
+        ];
+
+        let isNight = true;
+        let isRainActive = false;
+        let activeInterval = null;
+
+        window.onload = function() {
+            startClock();
+            initParticlesCanvas();
+            initRainCanvas();
+            renderGamesAppCatalog(GAMES_DATABASE);
+            loadSavedHighScores();
+        };
+
+        function startClock() {
+            setInterval(() => {
+                const now = new Date();
+                document.getElementById('osClock').innerText = now.toLocaleTimeString('ar-EG');
+            }, 1000);
+        }
+
+        /* Music Player Functions */
+        function loadUserMusic(event) {
+            const file = event.target.files[0];
+            if(!file) return;
+
+            const player = document.getElementById('bgAudioPlayer');
+            player.src = URL.createObjectURL(file);
+            player.play();
+
+            document.getElementById('musicLabelText').innerText = file.name.substring(0, 15) + '...';
+            const btn = document.getElementById('playPauseMusicBtn');
+            btn.classList.remove('hidden');
+            btn.innerHTML = '<i class="fa-solid fa-pause"></i>';
+        }
+
+        function toggleMusicPlay() {
+            const player = document.getElementById('bgAudioPlayer');
+            const btn = document.getElementById('playPauseMusicBtn');
+            if(player.paused) {
+                player.play();
+                btn.innerHTML = '<i class="fa-solid fa-pause"></i>';
+            } else {
+                player.pause();
+                btn.innerHTML = '<i class="fa-solid fa-play"></i>';
+            }
+        }
+
+        /* Celestial Day / Night Toggle */
+        function toggleDayNightMode() {
+            isNight = !isNight;
+            const toggle = document.getElementById('celestialToggle');
+            const day = document.getElementById('dayScene');
+            const night = document.getElementById('nightScene');
+
+            if(isNight) {
+                toggle.className = 'celestial-toggle night-mode p-1 flex items-center justify-between relative';
+                day.classList.add('opacity-0');
+                night.classList.remove('opacity-0');
+                document.documentElement.style.setProperty('--bg-canvas', '#090d16');
+                document.documentElement.style.setProperty('--text-color', '#f8fafc');
+            } else {
+                toggle.className = 'celestial-toggle day-mode p-1 flex items-center justify-between relative';
+                night.classList.add('opacity-0');
+                day.classList.remove('opacity-0');
+                document.documentElement.style.setProperty('--bg-canvas', '#38bdf8');
+                document.documentElement.style.setProperty('--text-color', '#0f172a');
+            }
+        }
+
+        /* Rain Effect Toggle */
+        function toggleRainEffect() {
+            isRainActive = !isRainActive;
+            const btnText = document.getElementById('rainBtnText');
+            btnText.innerText = isRainActive ? 'إيقاف المطر' : 'تفعيل المطر';
+        }
+
+        function toggleAboutModal() {
+            document.getElementById('aboutModal').classList.toggle('hidden');
+        }
+
+        function openApp(appName) {
+            closeStartMenu();
+            if(appName === 'games') {
+                document.getElementById('appGamesWindow').classList.remove('hidden');
+            }
+        }
+
+        function closeApp(appName) {
+            if(appName === 'games') {
+                document.getElementById('appGamesWindow').classList.add('hidden');
+            }
+        }
+
+        function toggleStartMenu() {
+            document.getElementById('startMenu').classList.toggle('hidden');
+        }
+
+        function closeStartMenu() {
+            document.getElementById('startMenu').classList.add('hidden');
+        }
+
+        function renderGamesAppCatalog(list) {
+            const grid = document.getElementById('gamesAppGrid');
+            grid.innerHTML = '';
+            list.forEach(g => {
+                const highScore = getHighScore(g.id);
+                const card = document.createElement('div');
+                card.className = 'glass-panel p-4 rounded-2xl flex flex-col justify-between cursor-pointer hover:scale-105 transition-all group border border-white/10';
+                card.onclick = () => launchActiveGame(g.id);
+                card.innerHTML = `
+                    <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr ${g.color} flex items-center justify-center text-white text-xl shadow-lg mb-3 group-hover:scale-110 transition-transform">
+                        <i class="fa-solid ${g.icon}"></i>
+                    </div>
+                    <h4 class="font-bold text-xs mb-1 line-clamp-1">${g.name}</h4>
+                    <div class="flex items-center justify-between mt-2 text-[10px] text-amber-400 font-bold">
+                        <span><i class="fa-solid fa-crown text-[9px] mr-1"></i>${highScore}</span>
+                        <span class="theme-accent-text">تشغيل ←</span>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        function filterGames(cat) {
+            if(cat === 'all') renderGamesAppCatalog(GAMES_DATABASE);
+            else renderGamesAppCatalog(GAMES_DATABASE.filter(g => g.cat === cat));
+        }
+
+        function launchActiveGame(gameId) {
+            const game = GAMES_DATABASE.find(g => g.id === gameId);
+            if(!game) return;
+
+            if(activeInterval) clearInterval(activeInterval);
+            document.onkeydown = null;
+
+            document.getElementById('currentGameIcon').className = `fa-solid ${game.icon} text-xl theme-accent-text`;
+            document.getElementById('currentGameTitle').innerText = game.name;
+            document.getElementById('gameScoreTag').innerText = `النتيجة: 0`;
+            document.getElementById('activeGameModal').classList.remove('hidden');
+
+            const playground = document.getElementById('gamePlayground');
+            playground.innerHTML = '';
+
+            switch(gameId) {
+                case 'reaction': runReactionTestGame(playground); break;
+                case 'snake': runSnakeGame(playground); break;
+                case 'connect4': runConnect4Game(playground); break;
+                case 'stack': runStackGame(playground); break;
+                case 'tictactoe': runTicTacToeGame(playground); break;
+                case 'space': runSpaceGame(playground); break;
+                case 'brick': runBrickGame(playground); break;
+                case 'flappy': runFlappyGame(playground); break;
+                case 'pong': runPongGame(playground); break;
+                case 'memory': runMemoryGame(playground); break;
+                case 'math': runMathGame(playground); break;
+                case 'car': runCarGame(playground); break;
+                default: break;
+            }
+        }
+
+        function closeActiveGame() {
+            if(activeInterval) clearInterval(activeInterval);
+            document.onkeydown = null;
+            document.getElementById('activeGameModal').classList.add('hidden');
+        }
+
+        /* 1. REACTION TIME TEST GAME */
+        function runReactionTestGame(container) {
+            let state = 'waiting'; // waiting, ready, clicked
+            let startTime, timeoutId;
+
+            const box = document.createElement('div');
+            box.className = 'w-80 h-80 rounded-3xl bg-rose-600 flex flex-col items-center justify-center text-center p-6 cursor-pointer shadow-2xl transition-all';
+            box.innerHTML = `
+                <i class="fa-solid fa-hand-pointer text-4xl mb-3 animate-bounce"></i>
+                <h3 class="font-black text-lg mb-1">اضغط للبدء</h3>
+                <p class="text-xs opacity-80">عندما تحول الشاشة للون الأخضر اضغط بأسرع ما يمكن!</p>
+            `;
+            container.appendChild(box);
+
+            box.onclick = () => {
+                if(state === 'waiting') {
+                    state = 'ready';
+                    box.className = 'w-80 h-80 rounded-3xl bg-amber-500 flex flex-col items-center justify-center text-center p-6 cursor-pointer shadow-2xl';
+                    box.innerHTML = `<h3 class="font-black text-xl">انتظر اللون الأخضر...</h3>`;
+                    
+                    const randomDelay = Math.floor(Math.random() * 3000) + 2000;
+                    timeoutId = setTimeout(() => {
+                        state = 'clicked';
+                        startTime = Date.now();
+                        box.className = 'w-80 h-80 rounded-3xl bg-emerald-500 flex flex-col items-center justify-center text-center p-6 cursor-pointer shadow-2xl';
+                        box.innerHTML = `<h3 class="font-black text-2xl text-slate-950">اضغط الآن بسرعة!</h3>`;
+                    }, randomDelay);
+                } else if(state === 'ready') {
+                    clearTimeout(timeoutId);
+                    state = 'waiting';
+                    box.className = 'w-80 h-80 rounded-3xl bg-rose-600 flex flex-col items-center justify-center text-center p-6 cursor-pointer shadow-2xl';
+                    box.innerHTML = `<h3 class="font-black text-lg">ضغطت مبكراً جداً!</h3><p class="text-xs mt-2">اضغط لإعادة المحاولة</p>`;
+                } else if(state === 'clicked') {
+                    const reactionTime = Date.now() - startTime;
+                    state = 'waiting';
+                    box.className = 'w-80 h-80 rounded-3xl bg-blue-600 flex flex-col items-center justify-center text-center p-6 cursor-pointer shadow-2xl';
+                    box.innerHTML = `
+                        <i class="fa-solid fa-stopwatch text-4xl mb-2"></i>
+                        <h3 class="font-black text-3xl mb-1">${reactionTime} ms</h3>
+                        <p class="text-xs opacity-90">سرعة ردة فعلك!</p>
+                        <p class="text-[10px] mt-4 underline">اضغط للمحاولة مجدداً</p>
+                    `;
+                    document.getElementById('gameScoreTag').innerText = `النتيجة: ${reactionTime} ms`;
+                    saveHighScore('reaction', reactionTime, true);
+                }
+            };
+        }
+
+        /* 2. Connect 4 vs AI */
+        function runConnect4Game(container) {
+            let board = Array(6).fill(null).map(() => Array(7).fill(0));
+            const grid = document.createElement('div');
+            grid.className = 'grid grid-cols-7 gap-2 p-4 bg-blue-900 rounded-3xl shadow-2xl';
+            container.appendChild(grid);
+
+            function render() {
+                grid.innerHTML = '';
+                for(let r=0; r<6; r++) {
+                    for(let c=0; c<7; c++) {
+                        const cell = document.createElement('div');
+                        cell.className = `w-10 h-10 rounded-full border-2 border-blue-950 flex items-center justify-center cursor-pointer ${board[r][c] === 1 ? 'bg-red-500' : board[r][c] === 2 ? 'bg-amber-400' : 'bg-slate-950'}`;
+                        cell.onclick = () => dropPiece(c);
+                        grid.appendChild(cell);
+                    }
+                }
+            }
+
+            function dropPiece(col) {
+                for(let r=5; r>=0; r--) {
+                    if(board[r][col] === 0) {
+                        board[r][col] = 1;
+                        render();
+                        if(checkWin(1)) { alert('فزت بالمباراة!'); saveHighScore('connect4', 100); return; }
+                        setTimeout(botMove, 400);
+                        return;
+                    }
+                }
+            }
+
+            function botMove() {
+                let validCols = [];
+                for(let c=0; c<7; c++) if(board[0][c] === 0) validCols.push(c);
+                if(validCols.length === 0) return;
+                let col = validCols[Math.floor(Math.random()*validCols.length)];
+                for(let r=5; r>=0; r--) {
+                    if(board[r][col] === 0) {
+                        board[r][col] = 2;
+                        render();
+                        if(checkWin(2)) alert('فاز البوت!');
+                        return;
+                    }
+                }
+            }
+
+            function checkWin(p) {
+                // Horizontal, vertical, diagonal checks
+                for(let r=0; r<6; r++) for(let c=0; c<4; c++) if([0,1,2,3].every(i => board[r][c+i] === p)) return true;
+                for(let r=0; r<3; r++) for(let c=0; c<7; c++) if([0,1,2,3].every(i => board[r+i][c] === p)) return true;
+                return false;
+            }
+
+            render();
+        }
+
+        /* 3. Tower Stack Game */
+        function runStackGame(container) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 300; canvas.height = 360;
+            canvas.className = 'border border-white/20 rounded-2xl bg-slate-950 shadow-2xl';
+            container.appendChild(canvas);
+
+            const ctx = canvas.getContext('2d');
+            let stack = [{x: 100, w: 100, y: 330}];
+            let current = {x: 0, w: 100, y: 300, dir: 3};
+            let score = 0;
+
+            function draw() {
+                ctx.fillStyle = '#020617';
+                ctx.fillRect(0, 0, 300, 360);
+
+                stack.forEach(s => {
+                    ctx.fillStyle = '#3b82f6';
+                    ctx.fillRect(s.x, s.y, s.w, 20);
+                });
+
+                ctx.fillStyle = '#f43f5e';
+                ctx.fillRect(current.x, current.y, current.w, 20);
+
+                current.x += current.dir;
+                if(current.x <= 0 || current.x + current.w >= 300) current.dir = -current.dir;
+            }
+
+            canvas.onclick = () => {
+                let prev = stack[stack.length - 1];
+                let diff = current.x - prev.x;
+                if(Math.abs(diff) >= current.w) {
+                    clearInterval(activeInterval);
+                    saveHighScore('stack', score);
+                    alert('سقط البرج! مجموع الطوابق: ' + score);
+                } else {
+                    score += 1;
+                    document.getElementById('gameScoreTag').innerText = `النتيجة: ${score}`;
+                    let newW = current.w - Math.abs(diff);
+                    let newX = diff > 0 ? current.x : prev.x;
+                    stack.push({x: newX, w: newW, y: current.y});
+                    current = {x: 0, w: newW, y: current.y - 25, dir: 3 + score*0.3};
+                }
+            };
+
+            activeInterval = setInterval(draw, 30);
+        }
+
+        /* 4. Snake Game */
+        function runSnakeGame(container) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 320; canvas.height = 320;
+            canvas.className = 'border border-white/20 rounded-2xl bg-slate-950 shadow-2xl';
+            container.appendChild(canvas);
+
+            const ctx = canvas.getContext('2d');
+            let snake = [{x: 160, y: 160}];
+            let food = {x: 80, y: 80};
+            let dx = 20, dy = 0;
+            let score = 0;
+
+            function draw() {
+                ctx.fillStyle = '#020617';
+                ctx.fillRect(0, 0, 320, 320);
+
+                ctx.fillStyle = '#ef4444';
+                ctx.fillRect(food.x, food.y, 18, 18);
+
+                snake.forEach((p, i) => {
+                    ctx.fillStyle = i === 0 ? '#3b82f6' : '#60a5fa';
+                    ctx.fillRect(p.x, p.y, 18, 18);
+                });
+
+                const head = {x: snake[0].x + dx, y: snake[0].y + dy};
+                if(head.x < 0 || head.x >= 320 || head.y < 0 || head.y >= 320 || snake.some(s => s.x === head.x && s.y === head.y)) {
+                    clearInterval(activeInterval);
+                    saveHighScore('snake', score);
+                    alert('انتهت اللعبة! مجموع نقاطك: ' + score);
+                    return;
+                }
+
+                snake.unshift(head);
+                if(head.x === food.x && head.y === food.y) {
+                    score += 10;
+                    document.getElementById('gameScoreTag').innerText = `النتيجة: ${score}`;
+                    food = {x: Math.floor(Math.random()*16)*20, y: Math.floor(Math.random()*16)*20};
+                } else {
+                    snake.pop();
+                }
+            }
+
+            document.onkeydown = (e) => {
+                if(e.key === 'ArrowUp' && dy===0) { dx=0; dy=-20; }
+                if(e.key === 'ArrowDown' && dy===0) { dx=0; dy=20; }
+                if(e.key === 'ArrowLeft' && dx===0) { dx=-20; dy=0; }
+                if(e.key === 'ArrowRight' && dx===0) { dx=20; dy=0; }
+            };
+
+            activeInterval = setInterval(draw, 120);
+        }
+
+        /* 5. Tic-Tac-Toe vs Bot */
+        function runTicTacToeGame(container) {
+            let board = Array(9).fill('');
+            let score = 0;
+            const grid = document.createElement('div');
+            grid.className = 'grid grid-cols-3 gap-3 w-64 h-64';
+            container.appendChild(grid);
+
+            function render() {
+                grid.innerHTML = '';
+                board.forEach((val, idx) => {
+                    const btn = document.createElement('button');
+                    btn.className = 'w-full h-full bg-slate-900 border border-white/20 rounded-2xl text-2xl font-black flex items-center justify-center text-white hover:bg-white/10';
+                    btn.innerText = val;
+                    btn.onclick = () => playerMove(idx);
+                    grid.appendChild(btn);
+                });
+            }
+
+            function playerMove(idx) {
+                if(board[idx] !== '') return;
+                board[idx] = 'X';
+                if(checkWin('X')) {
+                    score += 50;
+                    saveHighScore('tictactoe', score);
+                    document.getElementById('gameScoreTag').innerText = `النتيجة: ${score}`;
+                    alert('فزت على البوت!');
+                    board.fill('');
+                    render();
+                    return;
+                }
+                botMove();
+                render();
+            }
+
+            function botMove() {
+                let empty = board.map((v, i) => v === '' ? i : null).filter(v => v !== null);
+                if(empty.length === 0) { board.fill(''); return; }
+                let choice = empty[Math.floor(Math.random() * empty.length)];
+                board[choice] = 'O';
+                if(checkWin('O')) { alert('فاز البوت!'); board.fill(''); }
+            }
+
+            function checkWin(p) {
+                const wins = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+                return wins.some(w => w.every(i => board[i] === p));
+            }
+            render();
+        }
+
+        /* 6. Space Shooter */
+        function runSpaceGame(container) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 320; canvas.height = 360;
+            canvas.className = 'border border-white/20 rounded-2xl bg-slate-950 shadow-2xl';
+            container.appendChild(canvas);
+
+            const ctx = canvas.getContext('2d');
+            let player = {x: 140, y: 320, w: 40, h: 20};
+            let bullets = []; enemies = []; score = 0;
+
+            function draw() {
+                ctx.fillStyle = '#020617';
+                ctx.fillRect(0, 0, 320, 360);
+
+                ctx.fillStyle = '#3b82f6';
+                ctx.fillRect(player.x, player.y, player.w, player.h);
+
+                if(Math.random() < 0.05) enemies.push({x: Math.random()*280, y: 0, w: 25, h: 25});
+
+                ctx.fillStyle = '#ef4444';
+                enemies.forEach((e) => {
+                    e.y += 2; ctx.fillRect(e.x, e.y, e.w, e.h);
+                    if(e.y > 360) { clearInterval(activeInterval); saveHighScore('space', score); alert('خسرت! النتيجة: ' + score); }
+                });
+
+                ctx.fillStyle = '#f59e0b';
+                bullets.forEach((b, bi) => {
+                    b.y -= 5; ctx.fillRect(b.x, b.y, 4, 10);
+                    enemies.forEach((e, ei) => {
+                        if(b.x > e.x && b.x < e.x + e.w && b.y > e.y && b.y < e.y + e.h) {
+                            enemies.splice(ei, 1); bullets.splice(bi, 1);
+                            score += 10;
+                            document.getElementById('gameScoreTag').innerText = `النتيجة: ${score}`;
+                        }
+                    });
+                });
+            }
+
+            document.onkeydown = (e) => {
+                if(e.key === 'ArrowLeft' && player.x > 0) player.x -= 20;
+                if(e.key === 'ArrowRight' && player.x < 280) player.x += 20;
+                if(e.key === ' ') bullets.push({x: player.x + 18, y: player.y});
+            };
+
+            activeInterval = setInterval(draw, 30);
+        }
+
+        /* 7. Brick Breaker */
+        function runBrickGame(container) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 320; canvas.height = 340;
+            canvas.className = 'border border-white/20 rounded-2xl bg-slate-950 shadow-2xl';
+            container.appendChild(canvas);
+
+            const ctx = canvas.getContext('2d');
+            let paddle = {x: 120, w: 80, h: 12};
+            let ball = {x: 160, y: 200, dx: 3, dy: -3, r: 6};
+            let score = 0, bricks = [];
+
+            for(let r=0; r<4; r++) for(let c=0; c<5; c++) bricks.push({x: c*60 + 10, y: r*25 + 30, w: 50, h: 18, status: 1});
+
+            function draw() {
+                ctx.fillStyle = '#020617'; ctx.fillRect(0, 0, 320, 340);
+                ctx.fillStyle = '#3b82f6'; ctx.fillRect(paddle.x, 320, paddle.w, paddle.h);
+                ctx.fillStyle = '#f43f5e'; ctx.beginPath(); ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI*2); ctx.fill();
+
+                bricks.forEach(b => {
+                    if(b.status === 1) {
+                        ctx.fillStyle = '#10b981'; ctx.fillRect(b.x, b.y, b.w, b.h);
+                        if(ball.x > b.x && ball.x < b.x + b.w && ball.y > b.y && ball.y < b.y + b.h) {
+                            ball.dy = -ball.dy; b.status = 0; score += 15;
+                            document.getElementById('gameScoreTag').innerText = `النتيجة: ${score}`;
+                        }
+                    }
+                });
+
+                ball.x += ball.dx; ball.y += ball.dy;
+                if(ball.x < 0 || ball.x > 320) ball.dx = -ball.dx;
+                if(ball.y < 0) ball.dy = -ball.dy;
+                if(ball.y > 320 && ball.x > paddle.x && ball.x < paddle.x + paddle.w) ball.dy = -ball.dy;
+                if(ball.y > 340) { clearInterval(activeInterval); saveHighScore('brick', score); alert('انتهت اللعبة! نقاطك: ' + score); }
+            }
+
+            document.onkeydown = (e) => {
+                if(e.key === 'ArrowLeft' && paddle.x > 0) paddle.x -= 25;
+                if(e.key === 'ArrowRight' && paddle.x < 240) paddle.x += 25;
+            };
+
+            activeInterval = setInterval(draw, 20);
+        }
+
+        /* 8. Flappy Bird */
+        function runFlappyGame(container) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 300; canvas.height = 360;
+            canvas.className = 'border border-white/20 rounded-2xl bg-slate-950 shadow-2xl';
+            container.appendChild(canvas);
+
+            const ctx = canvas.getContext('2d');
+            let bird = {y: 180, velocity: 0, gravity: 0.5, jump: -7};
+            let pipes = [], score = 0;
+
+            function draw() {
+                ctx.fillStyle = '#020617'; ctx.fillRect(0, 0, 300, 360);
+                bird.velocity += bird.gravity; bird.y += bird.velocity;
+                ctx.fillStyle = '#f59e0b'; ctx.beginPath(); ctx.arc(60, bird.y, 10, 0, Math.PI*2); ctx.fill();
+
+                if(Math.random() < 0.02) {
+                    let top = Math.random() * 150 + 20;
+                    pipes.push({x: 300, top: top, bottom: top + 90});
+                }
+
+                ctx.fillStyle = '#10b981';
+                pipes.forEach((p) => {
+                    p.x -= 2; ctx.fillRect(p.x, 0, 30, p.top); ctx.fillRect(p.x, p.bottom, 30, 360 - p.bottom);
+                    if(p.x === 60) { score += 10; document.getElementById('gameScoreTag').innerText = `النتيجة: ${score}`; }
+                    if((60 > p.x && 60 < p.x + 30) && (bird.y < p.top || bird.y > p.bottom) || bird.y > 360 || bird.y < 0) {
+                        clearInterval(activeInterval); saveHighScore('flappy', score); alert('سقط الطائر! نقاطك: ' + score);
+                    }
+                });
+            }
+
+            document.onkeydown = (e) => { if(e.key === ' ') bird.velocity = bird.jump; };
+            canvas.onclick = () => bird.velocity = bird.jump;
+            activeInterval = setInterval(draw, 30);
+        }
+
+        /* 9. Pong 2P */
+        function runPongGame(container) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 320; canvas.height = 320;
+            canvas.className = 'border border-white/20 rounded-2xl bg-slate-950 shadow-2xl';
+            container.appendChild(canvas);
+
+            const ctx = canvas.getContext('2d');
+            let p1 = 120, p2 = 120, ball = {x: 160, y: 160, dx: 3, dy: 3};
+
+            function draw() {
+                ctx.fillStyle = '#020617'; ctx.fillRect(0, 0, 320, 320);
+                ctx.fillStyle = '#3b82f6'; ctx.fillRect(10, p1, 10, 60); ctx.fillRect(300, p2, 10, 60);
+                ctx.fillStyle = '#ffffff'; ctx.fillRect(ball.x, ball.y, 8, 8);
+
+                ball.x += ball.dx; ball.y += ball.dy;
+                if(ball.y < 0 || ball.y > 310) ball.dy = -ball.dy;
+                if(ball.x < 20 && ball.y > p1 && ball.y < p1 + 60) ball.dx = -ball.dx;
+                if(ball.x > 290 && ball.y > p2 && ball.y < p2 + 60) ball.dx = -ball.dx;
+                if(ball.x < 0 || ball.x > 320) ball = {x: 160, y: 160, dx: -ball.dx, dy: 3};
+            }
+
+            document.onkeydown = (e) => {
+                if(e.key === 'w' && p1 > 0) p1 -= 20; if(e.key === 's' && p1 < 260) p1 += 20;
+                if(e.key === 'ArrowUp' && p2 > 0) p2 -= 20; if(e.key === 'ArrowDown' && p2 < 260) p2 += 20;
+            };
+            activeInterval = setInterval(draw, 20);
+        }
+
+        /* 10. Memory Match */
+        function runMemoryGame(container) {
+            const icons = ['fa-ghost', 'fa-dragon', 'fa-bolt', 'fa-skull', 'fa-ghost', 'fa-dragon', 'fa-bolt', 'fa-skull'];
+            let shuffled = icons.sort(() => Math.random() - 0.5), selected = [], score = 0;
+
+            const grid = document.createElement('div');
+            grid.className = 'grid grid-cols-4 gap-3 w-64 h-64';
+            container.appendChild(grid);
+
+            shuffled.forEach((icon) => {
+                const btn = document.createElement('button');
+                btn.className = 'w-full h-full bg-slate-900 border border-white/20 rounded-2xl flex items-center justify-center text-xl text-white hover:bg-white/10';
+                btn.onclick = () => {
+                    btn.innerHTML = `<i class="fa-solid ${icon}"></i>`;
+                    selected.push({icon, btn});
+                    if(selected.length === 2) {
+                        if(selected[0].icon === selected[1].icon) {
+                            score += 25; document.getElementById('gameScoreTag').innerText = `النتيجة: ${score}`;
+                            saveHighScore('memory', score); selected = [];
+                        } else {
+                            setTimeout(() => { selected[0].btn.innerHTML = ''; selected[1].btn.innerHTML = ''; selected = []; }, 600);
+                        }
+                    }
+                };
+                grid.appendChild(btn);
+            });
+        }
+
+        /* 11. Math Quiz */
+        function runMathGame(container) {
+            let score = 0;
+            const box = document.createElement('div');
+            box.className = 'text-center space-y-4';
+            container.appendChild(box);
+
+            function nextQuestion() {
+                let a = Math.floor(Math.random() * 20) + 1, b = Math.floor(Math.random() * 20) + 1, ans = a + b;
+                box.innerHTML = `
+                    <h3 class="text-3xl font-black">${a} + ${b} = ?</h3>
+                    <input type="number" id="mathAns" class="p-2 rounded-xl text-slate-950 font-bold w-32 text-center" autofocus>
+                    <button id="mathSub" class="block mx-auto px-4 py-2 bg-blue-500 rounded-xl font-bold">إرسال</button>
+                `;
+                document.getElementById('mathSub').onclick = () => {
+                    if(parseInt(document.getElementById('mathAns').value) === ans) {
+                        score += 10; document.getElementById('gameScoreTag').innerText = `النتيجة: ${score}`;
+                        saveHighScore('math', score); nextQuestion();
+                    } else alert('إجابة خاطئة!');
+                };
+            }
+            nextQuestion();
+        }
+
+        /* 12. Car Dodge */
+        function runCarGame(container) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 300; canvas.height = 360;
+            canvas.className = 'border border-white/20 rounded-2xl bg-slate-950 shadow-2xl';
+            container.appendChild(canvas);
+
+            const ctx = canvas.getContext('2d');
+            let playerX = 130, enemies = [], score = 0;
+
+            function draw() {
+                ctx.fillStyle = '#1e293b'; ctx.fillRect(0, 0, 300, 360);
+                ctx.fillStyle = '#3b82f6'; ctx.fillRect(playerX, 300, 40, 50);
+
+                if(Math.random() < 0.04) enemies.push({x: Math.random()*250, y: 0});
+
+                ctx.fillStyle = '#ef4444';
+                enemies.forEach(e => {
+                    e.y += 4; ctx.fillRect(e.x, e.y, 40, 50);
+                    if(e.y > 250 && e.y < 350 && Math.abs(e.x - playerX) < 35) {
+                        clearInterval(activeInterval); saveHighScore('car', score); alert('اصطدمت بالسيارة! نقاطك: ' + score);
+                    }
+                });
+
+                score += 1; document.getElementById('gameScoreTag').innerText = `النتيجة: ${score}`;
+            }
+
+            document.onkeydown = (e) => {
+                if(e.key === 'ArrowLeft' && playerX > 10) playerX -= 30;
+                if(e.key === 'ArrowRight' && playerX < 250) playerX += 30;
+            };
+            activeInterval = setInterval(draw, 30);
+        }
+
+        /* Colors Customization */
+        function toggleThemeModal() { document.getElementById('themeModal').classList.toggle('hidden'); }
+
+        function updateCustomColors() {
+            const primary = document.getElementById('primaryColorInput').value;
+            const bg = document.getElementById('bgColorInput').value;
+            const text = document.getElementById('textColorInput').value;
+
+            document.documentElement.style.setProperty('--primary-color', primary);
+            document.documentElement.style.setProperty('--bg-canvas', bg);
+            document.documentElement.style.setProperty('--text-color', text);
+        }
+
+        function resetColors() {
+            document.documentElement.style.setProperty('--primary-color', '#3b82f6');
+            document.documentElement.style.setProperty('--bg-canvas', '#090d16');
+            document.documentElement.style.setProperty('--text-color', '#f8fafc');
+            toggleThemeModal();
+        }
+
+        /* High Scores Functions */
+        function getHighScore(gameId) {
+            return localStorage.getItem(`mahdi_hs_${gameId}`) || 0;
+        }
+
+        function saveHighScore(gameId, score, isLowerBetter = false) {
+            const current = parseInt(getHighScore(gameId));
+            if(isLowerBetter) {
+                if(current === 0 || score < current) {
+                    localStorage.setItem(`mahdi_hs_${gameId}`, score);
+                    renderGamesAppCatalog(GAMES_DATABASE);
+                }
+            } else {
+                if(score > current) {
+                    localStorage.setItem(`mahdi_hs_${gameId}`, score);
+                    renderGamesAppCatalog(GAMES_DATABASE);
+                }
+            }
+        }
+
+        function toggleHighScoresModal() {
+            const modal = document.getElementById('highScoresModal');
+            modal.classList.toggle('hidden');
+            if(!modal.classList.contains('hidden')) loadSavedHighScores();
+        }
+
+        function loadSavedHighScores() {
+            const list = document.getElementById('highScoresList');
+            list.innerHTML = '';
+            GAMES_DATABASE.forEach(g => {
+                const score = getHighScore(g.id);
+                const item = document.createElement('div');
+                item.className = 'flex items-center justify-between p-2.5 rounded-xl bg-white/5 border border-white/5';
+                item.innerHTML = `
+                    <div class="flex items-center gap-2">
+                        <i class="fa-solid ${g.icon} theme-accent-text"></i>
+                        <span>${g.name}</span>
+                    </div>
+                    <span class="font-bold text-amber-400">${score} ${g.id === 'reaction' ? 'ms' : 'نقطة'}</span>
+                `;
+                list.appendChild(item);
+            });
+        }
+
+        function clearHighScores() {
+            GAMES_DATABASE.forEach(g => localStorage.removeItem(`mahdi_hs_${g.id}`));
+            loadSavedHighScores();
+            renderGamesAppCatalog(GAMES_DATABASE);
+        }
+
+        /* Dynamic Particles & Rain Canvas Effects */
+        function initParticlesCanvas() {
+            const canvas = document.getElementById('bgCanvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+
+            let particles = Array.from({length: 25}, () => ({
+                x: Math.random() * canvas.width, y: Math.random() * canvas.height,
+                r: Math.random() * 2.5 + 1, dx: (Math.random() - 0.5) * 0.6, dy: (Math.random() - 0.5) * 0.6
+            }));
+
+            function render() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
+                particles.forEach(p => {
+                    ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
+                    p.x += p.dx; p.y += p.dy;
+                    if(p.x < 0 || p.x > canvas.width) p.dx = -p.dx;
+                    if(p.y < 0 || p.y > canvas.height) p.dy = -p.dy;
+                });
+                requestAnimationFrame(render);
+            }
+            render();
+        }
+
+        function initRainCanvas() {
+            const canvas = document.getElementById('rainCanvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+
+            let drops = Array.from({length: 80}, () => ({
+                x: Math.random() * canvas.width, y: Math.random() * canvas.height,
+                l: Math.random() * 15 + 10, v: Math.random() * 8 + 4
+            }));
+
+            function renderRain() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                if(isRainActive) {
+                    ctx.strokeStyle = 'rgba(186, 230, 253, 0.4)';
+                    ctx.lineWidth = 1.5;
+                    ctx.beginPath();
+                    drops.forEach(d => {
+                        ctx.moveTo(d.x, d.y); ctx.lineTo(d.x, d.y + d.l);
+                        d.y += d.v;
+                        if(d.y > canvas.height) { d.y = -20; d.x = Math.random() * canvas.width; }
+                    });
+                    ctx.stroke();
+                }
+                requestAnimationFrame(renderRain);
+            }
+            renderRain();
+        }
+    </script>
+</body>
+</html>
